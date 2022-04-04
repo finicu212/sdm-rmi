@@ -19,7 +19,7 @@ public class ClientMain {
 		for (int i = 0; i < 10; i++) {
 			remote.add(15);
 			System.out.println(remote.getResult());
-			Thread.sleep(1500);
+			Thread.sleep(500);
 		}
 	}
 }
