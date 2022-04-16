@@ -1,18 +1,17 @@
 package rmiserver;
 
-import java.io.File;
-import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
+import java.util.Random;
 
 import interfaces.MyRemoteInterface;
 import interfaces.Seat;
 
 public class MyRemote extends UnicastRemoteObject implements MyRemoteInterface {
-	ArrayList<Seat> availableSeats;
+	List<Seat> availableSeats;
 
 	String url = "jdbc:mysql://localhost:3306/lab3-sdm";
 	String get_query = "SELECT * FROM seats;";
@@ -23,37 +22,47 @@ public class MyRemote extends UnicastRemoteObject implements MyRemoteInterface {
 	}
 
 	private void fetchSeats() throws RemoteException {
-		try {
-			File file = new File("db.csv");
-			Scanner myReader = new Scanner(file);
-			availableSeats = new ArrayList<>();
+		availableSeats = new ArrayList<>();
+		try (
+			Connection con = DriverManager.getConnection(url, "root", "root");
+			PreparedStatement ps = con.prepareStatement(get_query);
+		) {
+			ResultSet rs = ps.executeQuery();
 
-			while (myReader.hasNextLine()) {
-				String line = myReader.nextLine();
-				String[] coords = line.split(",");
-				Seat newSeat = new Seat(Integer.parseInt(coords[0]), Integer.parseInt(coords[1]));
-				System.out.println("Read a seat: " + newSeat);
-				availableSeats.add(newSeat);
-			}
-			myReader.close();
-
-			System.out.println("Fetched from DB:");
-			for (Seat s : availableSeats)
+			Seat nextSeat = null;
+			while (rs.next())
 			{
-				System.out.println(s);
+				nextSeat = new Seat(rs.getInt("pos_row"), rs.getInt("pos_column"));
+				availableSeats.add(nextSeat);
 			}
-
-		} catch (IOException e) {
-			System.out.println("An error occurred.");
+		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-
-		System.out.println();
 	}
 
-	private void pushSeats(List<Seat> seats) throws RemoteException {
+	String del_query = "DELETE FROM seats;";
+	String ins_query = "INSERT INTO seats VALUES "; // append '(?,?,?),' for each seat, at end append ';'
+	Random random = new Random();
+	public void pushSeats(List<Seat> seats) throws RemoteException {
+		availableSeats = seats;
+		boolean isFirstSeat = true;
 		for (Seat s : seats) {
-			String ss = s.toString();
+			String ss = "";
+			if (!isFirstSeat) ss += ',';
+			else isFirstSeat = false;
+			ss += String.format("(%s,%s,%s)", random.nextInt(1, Integer.MAX_VALUE), s.getRow(), s.getCol());
+			ins_query += ss;
+		}
+		System.out.println(ins_query);
+		try (
+				Connection con = DriverManager.getConnection(url, "root", "root");
+				PreparedStatement deleteStatement = con.prepareStatement(del_query);
+				PreparedStatement insertStatement = con.prepareStatement(ins_query);
+		) {
+			deleteStatement.execute();
+			insertStatement.execute(); // getResult might now be BONED
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 	}
 
