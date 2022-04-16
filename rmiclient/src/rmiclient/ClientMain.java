@@ -6,6 +6,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 import interfaces.MyRemoteInterface;
+import interfaces.Seat;
 
 public class ClientMain {
 
@@ -16,10 +17,13 @@ public class ClientMain {
 			System.out.println(s);
 		}
 		MyRemoteInterface remote = (MyRemoteInterface) registry.lookup("object");
+
+		// The client tries to reserve seats (1, 0), (1, 1), ..., (1, 9)
 		for (int i = 0; i < 10; i++) {
-			remote.add(15);
-			System.out.println(remote.getResult());
-			Thread.sleep(500);
+			Seat seatWanted = new Seat(1, i);
+			boolean reservationSuccess = remote.reserveSeat(seatWanted);
+			System.out.println((reservationSuccess ? "Success " : "Failure ") + "for seat (1, " + i + ")!");
+			Thread.sleep(200);
 		}
 	}
 }
